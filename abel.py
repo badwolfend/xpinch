@@ -118,21 +118,36 @@ def plot_mesh_with_scalar(mesh, scalar_field, cmap='terrain', clim=None):
     plotter.show()
 
 # Run Directory
-data_dir = '/Users/james/Documents/Data/Bluehive/PERSEUS/'
+osx = False
+# If mac osx #
+if osx:
+    datadir = '/Volumes/T9/XSPL/PERSEUS/xpinch/Bluehive/Data/'
+    savedir = '/Volumes/T9/XSPL/PERSEUS/xpinch/Bluehive/Plots/'
+else:
+    drive_letter = 'D:'
+
+    data_path_on_external_drive = 'XSPL/PERSEUS/xpinch/Bluehive/Data/' 
+    plot_path_on_external_drive = 'XSPL/PERSEUS/xpinch/Bluehive/Plots/'  
+
+    datadir = drive_letter + '\\' + data_path_on_external_drive       
+    savedir = drive_letter+'\\'+plot_path_on_external_drive
+
 run = 'x_150um_y_m50um_t_52_R_150um_rand'
 run = 'x_150um_y_0um_t_45_R_150um_rand'
 run = 'R_150um_rand_er2_2'
 run = 'R_85um_rand_er_2'
-
 # run = 'perseus_power_preempt_N_1_n_48_R_150um_iner2_nolas_rand'
 # run = 'perseus_power_preempt_N_1_n_48_x_150um_y_0um_t_52_R_150um'
+run = 'R_150um_rand_er2_2'
+run = 'R_85um_rand_er_2'
 
-run_dir = data_dir+run+'/data/'
+run_path = datadir+run+'/data/'
+
 time = 86
-time = 9
+time = 35
 
 # Combine the tiles into a single grid
-mesh = combine_tiles(time, run_dir)
+mesh = combine_tiles(time, run_path)
 
 # Get an array of x, y, z coordinates from the grid
 r = mesh.points[:, 0]
@@ -145,7 +160,7 @@ smesh = unstructured_to_structured(mesh, variable_name='Log Ion Density')
 
 # Plot the structured grid and show the axis and labels    
 plot_mesh_with_scalar(smesh, 'Magnetic Field', cmap='terrain', clim=None)
-# plot_mesh_with_scalar(smesh, 'Log Ion Density', cmap='terrain', clim=None)
+plot_mesh_with_scalar(smesh, 'Log Ion Density', cmap='terrain', clim=None)
 
 # Get the cell data for the electron density from the structured grid
 data = smesh.point_data['Ion Density']
@@ -228,9 +243,16 @@ z_max_index = int((zbhigh-(zmax-zmin)/2) / dz)
 Ipleft = np.flip(Ip, axis=1)
 Ipfull = np.concatenate((Ipleft, Ip), axis=1)
 
-plt.imshow(Ipfull, cmap='gray', extent=[-rmax, rmax, zmin, zmax], aspect='equal')
+fig, ax = plt.subplots(1, 1)
+fig.set_size_inches(13.385, 6.0)
+plt.imshow(Ipfull, cmap='RdBu', extent=[-rmax, rmax, zmin, zmax], aspect='equal', vmin=0, vmax=1)
 
 # sbmesh = get_mesh_subset(smesh, [r_min_index, r_max_index], [z_min_index, z_max_index])
 # plt.imshow(sbmesh, cmap='terrain', aspect='equal', extent=[10**6*rblow, 10**6*rbhigh, 10**6*zblow, 10**6*zbhigh])
-# plt.imshow(Ip, cmap='gray', extent=[rmin, rmax, zmin, zmax], aspect='equal')
+# cbar = fig.colorbar(lc, ax=ax)
+# cbar.set_label('Color mapping value')
+# show colorbar
+# plt.colorbar()
+plt.tight_layout()
+fig.savefig(savedir+run+"_"+str(time)+'_'+str(mu)+'_absorption.png', dpi=300)
 plt.show()
