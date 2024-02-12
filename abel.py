@@ -110,18 +110,26 @@ def abel_projection(radial_data, dr):
     return projection_2d
 
 # # Plot the mesh with the scalar field
-def plot_mesh_with_scalar(mesh, scalar_field, cmap='terrain', clim=None):
-    plotter = pv.Plotter()
+def plot_mesh_with_scalar(mesh, scalar_field, cmap='terrain', clim=None, to_plot=True, plotterext=None, plotter_loc=[0, 0], columns=1, rows=1):
+    if plotterext is None:
+        plotter = pv.Plotter(shape=(rows, columns ))
+        plotter.subplot(plotter_loc[0], plotter_loc[1])
+    else:
+        plotter = plotterext
+        plotter.subplot(plotter_loc[0], plotter_loc[1])
     plotter.add_mesh(mesh, scalars=scalar_field, cmap=cmap, clim=clim)
     plotter.show_axes()
     plotter.show_bounds(grid='back', location='outer', ticks='both')
-    plotter.show()
+    if to_plot:
+        plotter.show()
+    return plotter
 
 # Run Directory
-osx = False
+osx = True
 # If mac osx #
 if osx:
     datadir = '/Volumes/T9/XSPL/PERSEUS/xpinch/Bluehive/Data/'
+    # datadir =  '/Users/james/Documents/Data/Bluehive/PERSEUS/'
     savedir = '/Volumes/T9/XSPL/PERSEUS/xpinch/Bluehive/Plots/'
 else:
     drive_letter = 'D:'
@@ -132,19 +140,14 @@ else:
     datadir = drive_letter + '\\' + data_path_on_external_drive       
     savedir = drive_letter+'\\'+plot_path_on_external_drive
 
-run = 'x_150um_y_m50um_t_52_R_150um_rand'
-run = 'x_150um_y_0um_t_45_R_150um_rand'
 run = 'R_150um_rand_er2_2'
-run = 'R_85um_rand_er_2'
-# run = 'perseus_power_preempt_N_1_n_48_R_150um_iner2_nolas_rand'
-# run = 'perseus_power_preempt_N_1_n_48_x_150um_y_0um_t_52_R_150um'
-run = 'R_150um_rand_er2_2'
-run = 'R_85um_rand_er_2'
+# run = 'R_85um_rand_er_2'
+run = 'R_85um_rand_2mm_er_2'
 
 run_path = datadir+run+'/data/'
 
 time = 86
-time = 35
+time = 5
 
 # Combine the tiles into a single grid
 mesh = combine_tiles(time, run_path)
@@ -159,8 +162,8 @@ dz = dr
 smesh = unstructured_to_structured(mesh, variable_name='Log Ion Density')
 
 # Plot the structured grid and show the axis and labels    
-plot_mesh_with_scalar(smesh, 'Magnetic Field', cmap='terrain', clim=None)
-plot_mesh_with_scalar(smesh, 'Log Ion Density', cmap='terrain', clim=None)
+plotter1 = plot_mesh_with_scalar(smesh, 'Log Ion Density', cmap='terrain', clim=[20, 30], to_plot=True, plotter_loc=[0, 0], columns=1, rows=1)
+plotter2 = plot_mesh_with_scalar(smesh, 'Magnetic Field', cmap='terrain', clim=[0, 100], to_plot=True, plotter_loc=[0, 0])
 
 # Get the cell data for the electron density from the structured grid
 data = smesh.point_data['Ion Density']
@@ -189,7 +192,7 @@ for zi in range(nz):
 # Attenuation for 10 keV in aluminum
 mu = 2.623E+01 # cm^2/g for 10 keV in aluminum
 mu = 7.955E+00 # cm^2/g for 15 keV in aluminum
-# mu = 3.441E+00 # cm^2/g for 20 keV in aluminum
+mu = 3.441E+00 # cm^2/g for 20 keV in aluminum
 # mu = 1.128E+00 # cm^2/g for 30 keV in aluminum
 
 # Convert number density to mass density
