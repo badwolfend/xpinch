@@ -3,15 +3,33 @@ import matplotlib.pyplot as plt
 import pyvista as pv
 import os
 
-# Combine the tiles into a single grid
+# Find maximum time step in the run directory
+def find_max_time(run_dir):
+    # List all the VTK files contained in the run directory
+    vtk_files = [vtk_file for vtk_file in os.listdir(run_dir) if vtk_file.endswith('.vtr')]
+
+    # Check if any files were found
+    if not vtk_files:
+        raise FileNotFoundError(f'No VTK files found in directory {run_dir}')
+    
+    # Extract the time step from each file name by splitting based on '.' and 't'
+    time_steps = [int(vtk_file.split('.')[0].split('t')[-1]) for vtk_file in vtk_files]
+
+    # Return the maximum time step
+    return max(time_steps)
+
 def combine_tiles(time, run_dir):
 
     # Specify time as a string with leading zeros
     time_str = f'{time:04d}'
 
     # List all the VTK files contained in the run directory
-    vtk_files = [run_dir+vtk_file for vtk_file in os.listdir(run_dir) if vtk_file.endswith(time_str+'.vtr')]
+    vtk_files = [os.path.join(run_dir, vtk_file) for vtk_file in os.listdir(run_dir) if vtk_file.endswith(time_str+'.vtr')]
 
+    # Check if any files were found
+    if not vtk_files:
+        raise FileNotFoundError(f'No VTK files found for time {time_str} in directory {run_dir}')
+    
     # Load each tile
     tiles = [pv.read(vtk_file) for vtk_file in vtk_files]
 
@@ -109,6 +127,54 @@ def abel_projection(radial_data, dr):
     
     return projection_2d
 
+def plot_mesh_with_time_slider(mesh, scalar_field, cmap='terrain', clim=None, to_plot=True):
+    # Get an array of x, y, z coordinates from the grid
+    r = mesh.points[:, 0]
+    z = mesh.points[:, 1]
+    dr = r[1]-r[0]
+    dz = dr
+    time_max = find_max_time(run_path)
+    print(f"Max Time: {time_max}")
+
+    # Function to update the plot based on the slider's value (time step)
+    def update_plot(value):
+        time = int(value)
+        print(f"Time Step: {time}" )
+        # Combine the tiles into a single grid
+        mesh2 = combine_tiles(time, run_path)
+
+        # Get an array of x, y, z coordinates from the grid
+        r = mesh2.points[:, 0]
+        z = mesh2.points[:, 1]
+        dr = r[1]-r[0]
+        dz = dr
+
+        # Update the scalar field based on the selected time step
+        plotter.add_mesh(mesh2, scalars=scalar_field, cmap=cmap, clim=clim)
+        plotter.render()
+
+    # Create the plotter
+    plotter = pv.Plotter()
+
+    # Add the mesh with the scalar field
+    plotter.add_mesh(mesh, scalars=scalar_field, cmap=cmap, clim=clim)
+
+    # Show the axes
+    plotter.show_axes()
+
+    # Show the bounds
+    plotter.show_bounds(grid='back', location='outer', ticks='both')
+
+    # Add the slider to the plotter
+    plotter.add_slider_widget(update_plot, rng=[0, time_max], value=0, title='Time Step')
+
+    # Show the plotter (this will also render the plot)
+    if to_plot:
+        plotter.show()
+    return r, z, dr, dz
+
+
+
 # # Plot the mesh with the scalar field
 def plot_mesh_with_scalar(mesh, scalar_field, cmap='terrain', clim=None, to_plot=True, plotterext=None, plotter_loc=[0, 0], columns=1, rows=1):
     if plotterext is None:
@@ -125,7 +191,7 @@ def plot_mesh_with_scalar(mesh, scalar_field, cmap='terrain', clim=None, to_plot
     return plotter
 
 # Run Directory
-osx = True
+osx = False
 # If mac osx #
 if osx:
     datadir = '/Volumes/T9/XSPL/PERSEUS/xpinch/Bluehive/Data/'
@@ -143,14 +209,16 @@ else:
 run = 'R_150um_rand_er2_2'
 # run = 'R_85um_rand_er_2'
 run = 'R_85um_rand_2mm_er_2'
+run = 'R_85um_rand_2mm_er_2_lowres_2'
 
 run_path = datadir+run+'/data/'
 
 time = 86
-time = 5
+time_analyze = 130
+time = find_max_time(run_path)
 
 # Combine the tiles into a single grid
-mesh = combine_tiles(time, run_path)
+mesh = combine_tiles(time_analyze, run_path)
 
 # Get an array of x, y, z coordinates from the grid
 r = mesh.points[:, 0]
@@ -161,9 +229,12 @@ dz = dr
 # Convert to StructuredGrid
 smesh = unstructured_to_structured(mesh, variable_name='Log Ion Density')
 
+r, z, dr, dz = plot_mesh_with_time_slider(smesh, 'Log Ion Density', cmap='terrain', clim=[20, 30], to_plot=True)
+r, z, dr, dz = plot_mesh_with_time_slider(smesh, 'Magnetic Field', cmap='terrain', clim=[0,250], to_plot=True)
+
 # Plot the structured grid and show the axis and labels    
-plotter1 = plot_mesh_with_scalar(smesh, 'Log Ion Density', cmap='terrain', clim=[20, 30], to_plot=True, plotter_loc=[0, 0], columns=1, rows=1)
-plotter2 = plot_mesh_with_scalar(smesh, 'Magnetic Field', cmap='terrain', clim=[0, 100], to_plot=True, plotter_loc=[0, 0])
+# plotter1 = plot_mesh_with_scalar(smesh, 'Log Ion Density', cmap='terrain', clim=[20, 30], to_plot=True, plotter_loc=[0, 0], columns=1, rows=1)
+# plotter2 = plot_mesh_with_scalar(smesh, 'Magnetic Field', cmap='terrain', clim=[0, 100], to_plot=True, plotter_loc=[0, 0])
 
 # Get the cell data for the electron density from the structured grid
 data = smesh.point_data['Ion Density']
@@ -192,7 +263,7 @@ for zi in range(nz):
 # Attenuation for 10 keV in aluminum
 mu = 2.623E+01 # cm^2/g for 10 keV in aluminum
 mu = 7.955E+00 # cm^2/g for 15 keV in aluminum
-mu = 3.441E+00 # cm^2/g for 20 keV in aluminum
+# mu = 3.441E+00 # cm^2/g for 20 keV in aluminum
 # mu = 1.128E+00 # cm^2/g for 30 keV in aluminum
 
 # Convert number density to mass density
@@ -257,5 +328,5 @@ plt.imshow(Ipfull, cmap='RdBu', extent=[-rmax, rmax, zmin, zmax], aspect='equal'
 # show colorbar
 # plt.colorbar()
 plt.tight_layout()
-fig.savefig(savedir+run+"_"+str(time)+'_'+str(mu)+'_absorption.png', dpi=300)
+fig.savefig(savedir+run+"_"+str(time_analyze)+'_'+str(mu)+'_absorption.png', dpi=300)
 plt.show()
