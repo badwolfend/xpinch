@@ -191,7 +191,12 @@ def plot_mesh_with_scalar(mesh, scalar_field, cmap='terrain', clim=None, to_plot
     return plotter
 
 # Run Directory
+# Check which file system is being used
 osx = False
+if os.name == 'posix':
+    osx = True
+
+
 # If mac osx #
 if osx:
     datadir = '/Volumes/T9/XSPL/PERSEUS/xpinch/Bluehive/Data/'
@@ -210,11 +215,12 @@ run = 'R_150um_rand_er2_2'
 # run = 'R_85um_rand_er_2'
 run = 'R_85um_rand_2mm_er_2'
 run = 'R_85um_rand_2mm_er_2_lowres_2'
+run = 'R_85um_rand_2mm_er_2_lowres_3'
+run = 'R_85um_rand_2mm_er_2_lowres_4'
 
 run_path = datadir+run+'/data/'
 
-time = 86
-time_analyze = 130
+time_analyze = 3
 time = find_max_time(run_path)
 
 # Combine the tiles into a single grid
