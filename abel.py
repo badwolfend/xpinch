@@ -220,7 +220,7 @@ run = 'R_85um_rand_2mm_er_2_lowres_4'
 
 run_path = datadir+run+'/data/'
 
-time_analyze = 3
+time_analyze = 101
 time = find_max_time(run_path)
 
 # Combine the tiles into a single grid
@@ -234,6 +234,20 @@ dz = dr
 
 # Convert to StructuredGrid
 smesh = unstructured_to_structured(mesh, variable_name='Log Ion Density')
+
+# # Use the glyph filter to visualize the vectors
+# smesh.set_active_vectors('Magnetic Field')
+# vector_data = smesh.cell_arrays['Magnetic Field']
+# cell_id = 0
+# print(f"Vector data for cell {cell_id}: {vector_data[cell_id]}")
+
+# glyphs = smesh.glyph(orient='Magnetic Field')
+
+
+# # Plotting
+# plotter = pv.Plotter()
+# plotter.add_mesh(glyphs, color='blue')
+# plotter.show()
 
 r, z, dr, dz = plot_mesh_with_time_slider(smesh, 'Log Ion Density', cmap='terrain', clim=[20, 30], to_plot=True)
 r, z, dr, dz = plot_mesh_with_time_slider(smesh, 'Magnetic Field', cmap='terrain', clim=[0,250], to_plot=True)
