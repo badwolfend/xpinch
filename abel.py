@@ -220,7 +220,7 @@ run = 'R_85um_rand_2mm_er_2_lowres_4'
 
 run_path = datadir+run+'/data/'
 
-time_analyze = 101
+time_analyze = 94
 time = find_max_time(run_path)
 
 # Combine the tiles into a single grid
