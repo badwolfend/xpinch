@@ -220,7 +220,7 @@ run = 'R_85um_rand_2mm_er_2_lowres_4'
 
 run_path = datadir+run+'/data/'
 
-time_analyze = 94
+time_analyze = 110
 time = find_max_time(run_path)
 
 # Combine the tiles into a single grid
@@ -281,8 +281,9 @@ for zi in range(nz):
 
     # Plot the results
 # Attenuation for 10 keV in aluminum
-mu = 2.623E+01 # cm^2/g for 10 keV in aluminum
-mu = 7.955E+00 # cm^2/g for 15 keV in aluminum
+mu = 5.033E+01 # cm^2/g for 8 keV in aluminum
+# mu = 2.623E+01 # cm^2/g for 10 keV in aluminum
+# mu = 7.955E+00 # cm^2/g for 15 keV in aluminum
 # mu = 3.441E+00 # cm^2/g for 20 keV in aluminum
 # mu = 1.128E+00 # cm^2/g for 30 keV in aluminum
 
