@@ -103,30 +103,6 @@ def get_mesh_subset(mesh, nxr, nzr):
             Fy[zi-nzr[0], xi-nxr[0]] = value
     return Fy
 
-def abel_projection(radial_data, dr):
-    """
-    Corrected implementation to compute the Abel projection.
-    
-    Parameters:
-    - radial_data: 1D numpy array of the radial distribution f(r).
-    - dr: The spacing between consecutive data points.
-    
-    Returns:
-    - projection_2d: The 2D projection P(x) of the radial distribution.
-    """
-    N = len(radial_data)
-    projection_2d = np.zeros(N)
-    r = np.arange(0, N * dr, dr)  # Radial positions
-
-    for i, x in enumerate(r):
-        # Only consider r values greater than x for integration
-        valid_r = r[i:]
-        if len(valid_r) > 1:
-            integrand = 2 * valid_r * radial_data[i:] / np.sqrt(valid_r**2 - x**2+1e-10)
-            projection_2d[i] = np.trapz(integrand, valid_r)
-    
-    return projection_2d
-
 def plot_mesh_with_time_slider(mesh, scalar_field, cmap='terrain', clim=None, to_plot=True):
     # Get an array of x, y, z coordinates from the grid
     r = mesh.points[:, 0]
@@ -200,7 +176,6 @@ if os.name == 'posix':
 # If mac osx #
 if osx:
     datadir = '/Volumes/T9/XSPL/PERSEUS/xpinch/Bluehive/Data/'
-    # datadir =  '/Users/james/Documents/Data/Bluehive/PERSEUS/'
     savedir = '/Volumes/T9/XSPL/PERSEUS/xpinch/Bluehive/Plots/'
 else:
     drive_letter = 'D:'
@@ -211,13 +186,8 @@ else:
     datadir = drive_letter + '\\' + data_path_on_external_drive       
     savedir = drive_letter+'\\'+plot_path_on_external_drive
 
-run = 'R_150um_rand_er2_2'
-# run = 'R_85um_rand_er_2'
-run = 'R_85um_rand_2mm_er_2'
-run = 'R_85um_rand_2mm_er_2_lowres_2'
-run = 'R_85um_rand_2mm_er_2_lowres_3'
-run = 'R_85um_rand_2mm_er_2_lowres_4'
 
+run = 'R_85um_rand_2mm_er_2_lowres_4'
 run_path = datadir+run+'/data/'
 
 time_analyze = 110
@@ -261,101 +231,3 @@ data = smesh.point_data['Ion Density']
 
 # Grid dimensions (assuming you know these or retrieve them from the grid)
 nx, nz, nu = smesh.dimensions
-
-Fy = np.zeros((nz, nx))
-for zi in range(nz):
-
-    # Constant y and z indices
-    constant_z_index = 0  # Example: constant z index
-    constant_nu_index = 0  # Example: constant z index
-
-    # Calculate the start and end indices in the 1D array for the slice
-    start_index = (constant_nu_index * nu * nx) + (zi * nx)
-    end_index = start_index + nx
-
-    # Extract values along x for constant y and z
-    values_along_x = data[start_index:end_index]
-
-    projection_2d = abel_projection(values_along_x, dr)
-    Fy[zi, :] = projection_2d
-
-    # Plot the results
-# Attenuation for 10 keV in aluminum
-mu = 5.033E+01 # cm^2/g for 8 keV in aluminum
-# mu = 2.623E+01 # cm^2/g for 10 keV in aluminum
-# mu = 7.955E+00 # cm^2/g for 15 keV in aluminum
-# mu = 3.441E+00 # cm^2/g for 20 keV in aluminum
-# mu = 1.128E+00 # cm^2/g for 30 keV in aluminum
-
-# Convert number density to mass density
-M=26.98 #g/mol for aluminum,
-NA=6.022e23 # atoms/mole.
-
-arg = Fy*1e-4 * mu * M/NA
-Ip = np.exp(-arg)
-
-# Add this Scalar value to the grid
-smesh.point_data['stopping'] = Ip.flatten()
-
-num_photons_per_pulse = 1e12
-V=60e-6
-H=60e-6
-focal_spot_area = V*H #(VxH) in m^2
-
-# Get the bounds of the grid
-bounds = mesh.bounds
-
-# The bounds are in the order: [xmin, xmax, ymin, ymax, zmin, zmax]
-rmin, rmax, zmin, zmax, _, _ = bounds
-
-# Print min and max values
-print(f"X Min: {rmin}, X Max: {rmax}")
-print(f"Y Min: {zmin}, Y Max: {zmax}")
-
-# Define the region of interest
-scl = 5
-rblow = 0
-rbhigh = H/2
-zblow = -V/2
-zbhigh = V/2
-
-rblow = 0
-rbhigh = rmax/10
-zblow = -zmax/10
-zbhigh = zmax/10
-
-# Get Ip for a region of interest
-# Assuming the region of interest is a box defined by the following limits
-
-# Find the 1D indices for the region of interest in the mesh
-r_min_index = int(rblow/ dr)
-r_max_index = int(rbhigh / dr)
-z_min_index = int((zblow+(zmax-zmin)/2) / dz)
-z_max_index = int((zbhigh+(zmax-zmin)/2) / dz)
-
-# Plot and make the aspect ratio consistent with the extent
-# Reflect Ip about the vertical axis and plot both
-Ipleft = np.flip(Ip, axis=1)
-Ipfull = np.concatenate((Ipleft, Ip), axis=1)
-Ipzoom = Ip[z_min_index:z_max_index, r_min_index:r_max_index]
-Ipzoomleft = np.flip(Ipzoom, axis=1)
-Ipzoomfull = np.concatenate((Ipzoomleft, Ipzoom), axis=1)
-
-fig, ax = plt.subplots(1, 1)
-fig.set_size_inches(13.385, 6.0)
-# plt.imshow(Ipfull, cmap='RdBu', extent=[-rmax, rmax, zmin, zmax], aspect='equal', vmin=0, vmax=1)
-# Blur the image
-from scipy.ndimage import gaussian_filter
-Ipzoomfull = gaussian_filter(Ipzoomfull, sigma=2)
-
-plt.imshow(Ipzoomfull, cmap='RdBu', extent=[-rbhigh, rbhigh, zblow, zbhigh], aspect='equal', vmin=0, vmax=1)
-# 
-# sbmesh = get_mesh_subset(smesh, [r_min_index, r_max_index], [z_min_index, z_max_index])
-# plt.imshow(sbmesh, cmap='terrain', aspect='equal', extent=[10**6*rblow, 10**6*rbhigh, 10**6*zblow, 10**6*zbhigh])
-# cbar = fig.colorbar(lc, ax=ax)
-# cbar.set_label('Color mapping value')
-# show colorbar
-plt.colorbar()
-plt.tight_layout()
-fig.savefig(savedir+run+"_"+str(time_analyze)+'_'+str(mu)+'_absorption_10xzoom_2.png', dpi=300)
-plt.show()
