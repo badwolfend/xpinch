@@ -281,8 +281,8 @@ for zi in range(nz):
 
     # Plot the results
 # Attenuation for 10 keV in aluminum
-mu = 5.033E+01 # cm^2/g for 8 keV in aluminum
-# mu = 2.623E+01 # cm^2/g for 10 keV in aluminum
+# mu = 5.033E+01 # cm^2/g for 8 keV in aluminum
+mu = 2.623E+01 # cm^2/g for 10 keV in aluminum
 # mu = 7.955E+00 # cm^2/g for 15 keV in aluminum
 # mu = 3.441E+00 # cm^2/g for 20 keV in aluminum
 # mu = 1.128E+00 # cm^2/g for 30 keV in aluminum
@@ -313,6 +313,7 @@ print(f"X Min: {rmin}, X Max: {rmax}")
 print(f"Y Min: {zmin}, Y Max: {zmax}")
 
 # Define the region of interest
+zoom = 1
 scl = 5
 rblow = 0
 rbhigh = H/2
@@ -320,9 +321,9 @@ zblow = -V/2
 zbhigh = V/2
 
 rblow = 0
-rbhigh = rmax/10
-zblow = -zmax/10
-zbhigh = zmax/10
+rbhigh = rmax/zoom
+zblow = -zmax/zoom
+zbhigh = zmax/zoom
 
 # Get Ip for a region of interest
 # Assuming the region of interest is a box defined by the following limits
@@ -357,5 +358,5 @@ plt.imshow(Ipzoomfull, cmap='RdBu', extent=[-rbhigh, rbhigh, zblow, zbhigh], asp
 # show colorbar
 plt.colorbar()
 plt.tight_layout()
-fig.savefig(savedir+run+"_"+str(time_analyze)+'_'+str(mu)+'_absorption_10xzoom_2.png', dpi=300)
+fig.savefig(savedir+run+"_"+str(time_analyze)+'_'+str(mu)+'_absorption.png', dpi=300)
 plt.show()
