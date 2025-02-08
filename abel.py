@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pyvista as pv
 import os
+from scipy.ndimage import gaussian_filter
 
 # Find maximum time step in the run directory
 def find_max_time(run_dir):
@@ -279,7 +280,8 @@ for zi in range(nz):
     projection_2d = abel_projection(values_along_x, dr)
     Fy[zi, :] = projection_2d
 
-    # Plot the results
+
+# Plot the results
 # Attenuation for 10 keV in aluminum
 # mu = 5.033E+01 # cm^2/g for 8 keV in aluminum
 mu = 2.623E+01 # cm^2/g for 10 keV in aluminum
@@ -346,7 +348,6 @@ fig, ax = plt.subplots(1, 1)
 fig.set_size_inches(13.385, 6.0)
 # plt.imshow(Ipfull, cmap='RdBu', extent=[-rmax, rmax, zmin, zmax], aspect='equal', vmin=0, vmax=1)
 # Blur the image
-from scipy.ndimage import gaussian_filter
 Ipzoomfull = gaussian_filter(Ipzoomfull, sigma=2)
 
 plt.imshow(Ipzoomfull, cmap='RdBu', extent=[-rbhigh, rbhigh, zblow, zbhigh], aspect='equal', vmin=0, vmax=1)
