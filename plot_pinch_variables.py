@@ -2,7 +2,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pyvista as pv
 import os
-from scipy.ndimage import gaussian_filter
 
 # Find maximum time step in the run directory
 def find_max_time(run_dir):
@@ -104,30 +103,6 @@ def get_mesh_subset(mesh, nxr, nzr):
             Fy[zi-nzr[0], xi-nxr[0]] = value
     return Fy
 
-def abel_projection(radial_data, dr):
-    """
-    Corrected implementation to compute the Abel projection.
-    
-    Parameters:
-    - radial_data: 1D numpy array of the radial distribution f(r).
-    - dr: The spacing between consecutive data points.
-    
-    Returns:
-    - projection_2d: The 2D projection P(x) of the radial distribution.
-    """
-    N = len(radial_data)
-    projection_2d = np.zeros(N)
-    r = np.arange(0, N * dr, dr)  # Radial positions
-
-    for i, x in enumerate(r):
-        # Only consider r values greater than x for integration
-        valid_r = r[i:]
-        if len(valid_r) > 1:
-            integrand = 2 * valid_r * radial_data[i:] / np.sqrt(valid_r**2 - x**2+1e-10)
-            projection_2d[i] = np.trapz(integrand, valid_r)
-    
-    return projection_2d
-
 def plot_mesh_with_time_slider(mesh, scalar_field, cmap='terrain', clim=None, to_plot=True):
     # Get an array of x, y, z coordinates from the grid
     r = mesh.points[:, 0]
@@ -174,8 +149,6 @@ def plot_mesh_with_time_slider(mesh, scalar_field, cmap='terrain', clim=None, to
         plotter.show()
     return r, z, dr, dz
 
-
-
 # # Plot the mesh with the scalar field
 def plot_mesh_with_scalar(mesh, scalar_field, cmap='terrain', clim=None, to_plot=True, plotterext=None, plotter_loc=[0, 0], columns=1, rows=1):
     if plotterext is None:
@@ -191,6 +164,123 @@ def plot_mesh_with_scalar(mesh, scalar_field, cmap='terrain', clim=None, to_plot
         plotter.show()
     return plotter
 
+def plot_variable_in_region(time, run_dir, variable_name, x_bounds, y_bounds, cmap='terrain', clim=None, to_save=False, save_dir=None):
+    """
+    Plots a selected variable from the combined grid at a given timestep within specified x and y bounds.
+
+    Parameters:
+    - time: Time step to load.
+    - run_dir: Directory containing the simulation tiles.
+    - variable_name: Name of the variable to plot.
+    - x_bounds: Tuple (x_min, x_max) specifying the region in the x-axis.
+    - y_bounds: Tuple (y_min, y_max) specifying the region in the y-axis.
+    - cmap: Colormap for the plot.
+    - clim: Color limits for the plot (optional).
+    """
+    # Combine tiles into a single grid for the given timestep
+    combined_grid = combine_tiles(time, run_dir)
+    
+    # Convert to structured grid
+    smesh = unstructured_to_structured(combined_grid, variable_name)
+    
+    # Extract mesh grid coordinates
+    x_coords = np.unique(smesh.points[:, 0])
+    y_coords = np.unique(smesh.points[:, 1])
+    
+    # Find indices for the specified bounds
+    x_indices = np.where((x_coords >= x_bounds[0]) & (x_coords <= x_bounds[1]))[0]
+    y_indices = np.where((y_coords >= y_bounds[0]) & (y_coords <= y_bounds[1]))[0]
+    
+    # Ensure variable exists
+    if variable_name not in smesh.point_data:
+        raise ValueError(f"Variable '{variable_name}' not found in the dataset. Available variables: {list(smesh.point_data.keys())}")
+    
+    # Extract variable data and reshape to match grid dimensions
+    nx, ny, _ = smesh.dimensions
+    data = smesh.point_data[variable_name].reshape((nx, ny), order='F')
+    
+    # Select the subset of data
+    selected_data = data[np.ix_(x_indices, y_indices)]
+    selected_x = x_coords[x_indices]
+    selected_y = y_coords[y_indices]
+    
+    # Plot
+    plt.figure(figsize=(8, 6))
+    plt.pcolormesh(selected_x, selected_y, selected_data.T, shading='auto', cmap=cmap)
+    plt.gca().set_aspect('equal')  # Automatically adjusts to data
+    if clim:
+        plt.clim(*clim)
+    
+    if to_save:
+        plt.tight_layout()
+        plt.savefig(os.path.join(save_dir, f'{variable_name.replace(" ", "_")}_time_{time}.png'), dpi=600)  
+    plt.colorbar(label=variable_name)
+    plt.xlabel('X Position')
+    plt.ylabel('Y Position')
+    plt.title(f'{variable_name} in Selected Region (Time {time})')
+    plt.show()
+
+def plot_avg_variable_over_y(time, run_dir, variable_name, x_bounds, y_range, to_plot=True, ax=None, use_right_axis=False, plot_style={}, to_save=False, save_dir=None):
+  """
+  Computes the average of a variable over a range of y values and plots it as a function of x.
+
+  Parameters:
+  - time: Time step to load.
+  - run_dir: Directory containing the simulation tiles.
+  - variable_name: Name of the variable to average.
+  - x_bounds: Tuple (x_min, x_max) specifying the region in the x-axis.
+  - y_range: Tuple (y_min, y_max) specifying the y range to average over.
+  - ax: Matplotlib axis object to plot on (optional).
+  - use_right_axis: If True, plots on the right-side y-axis.
+  - plot_style: Dictionary of style settings (e.g., linewidth, color, linestyle).
+  """
+  # Combine tiles into a single grid for the given timestep
+  combined_grid = combine_tiles(time, run_dir)
+  
+  # Convert to structured grid
+  smesh = unstructured_to_structured(combined_grid, variable_name)
+  
+  # Extract mesh grid coordinates
+  x_coords = np.unique(smesh.points[:, 0])
+  y_coords = np.unique(smesh.points[:, 1])
+  
+  # Find indices for the specified bounds
+  x_indices = np.where((x_coords >= x_bounds[0]) & (x_coords <= x_bounds[1]))[0]
+  y_indices = np.where((y_coords >= y_range[0]) & (y_coords <= y_range[1]))[0]
+  
+  # Ensure variable exists
+  if variable_name not in smesh.point_data:
+      raise ValueError(f"Variable '{variable_name}' not found in the dataset. Available variables: {list(smesh.point_data.keys())}")
+  
+  # Extract variable data and reshape to match grid dimensions
+  nx, ny, _ = smesh.dimensions
+  data = smesh.point_data[variable_name].reshape((nx, ny), order='F')
+  
+  # Compute the average over the selected y range
+  test = data[x_indices[0]:x_indices[-1], y_indices]
+  avg_data = np.mean(data[x_indices[0]:x_indices[-1]+1, y_indices], axis=1)
+  
+  # Select corresponding x values
+  selected_x = x_coords[x_indices]
+  
+  # Plot
+  if ax is None:
+      fig, ax = plt.subplots(figsize=(13.385, 13.385))
+  elif use_right_axis:
+        ax = ax.twinx()  # Create secondary y-axis on the right
+  ax.plot(selected_x, avg_data, label=f'Average {variable_name}', **plot_style)
+  if to_save:
+      plt.tight_layout()
+      plt.savefig(os.path.join(save_dir, f'avg_{variable_name.replace(" ", "_")}_time_{time}.png'), dpi=600)
+  plt.xlabel('X Position')
+  plt.ylabel(f'Avg {variable_name}')
+  plt.title(f'Average {variable_name} Over Y-Range {y_range} (Time {time})')
+  # plt.legend()
+  # plt.grid()
+  if to_plot:
+    plt.show()
+  return ax
+
 # Run Directory
 # Check which file system is being used
 osx = False
@@ -201,24 +291,18 @@ if os.name == 'posix':
 # If mac osx #
 if osx:
     datadir = '/Volumes/T9/XSPL/PERSEUS/xpinch/Bluehive/Data/'
-    # datadir =  '/Users/james/Documents/Data/Bluehive/PERSEUS/'
     savedir = '/Volumes/T9/XSPL/PERSEUS/xpinch/Bluehive/Plots/'
 else:
     drive_letter = 'D:'
 
-    data_path_on_external_drive = 'XSPL/PERSEUS/xpinch/Bluehive/Data/' 
-    plot_path_on_external_drive = 'XSPL/PERSEUS/xpinch/Bluehive/Plots/'  
+    data_path_on_external_drive = 'XSPL/Projects/DopedRod/Analysis/Data/PERSEUS/' 
+    plot_path_on_external_drive = 'XSPL/Projects/DopedRod/Analysis/Plots/'  
 
     datadir = drive_letter + '\\' + data_path_on_external_drive       
     savedir = drive_letter+'\\'+plot_path_on_external_drive
 
-run = 'R_150um_rand_er2_2'
-# run = 'R_85um_rand_er_2'
-run = 'R_85um_rand_2mm_er_2'
-run = 'R_85um_rand_2mm_er_2_lowres_2'
-run = 'R_85um_rand_2mm_er_2_lowres_3'
-run = 'R_85um_rand_2mm_er_2_lowres_4'
 
+run = 'run1'
 run_path = datadir+run+'/data/'
 
 time_analyze = 110
@@ -233,27 +317,23 @@ z = mesh.points[:, 1]
 dr = r[1]-r[0]
 dz = dr
 
+# Plot the variable in a specified region
+plot_variable_in_region(time=200, run_dir=run_path, variable_name='Log Ion Density', x_bounds=(-1, 1), y_bounds=(-1, 1), to_save=True, save_dir=savedir)
+
+style1 = {'linewidth': 4, 'color': 'k', 'linestyle': '--'}
+style2 = {'linewidth': 4, 'color': 'xkcd:sky blue', 'linestyle': '-'}
+style3 = {'linewidth': 4, 'color': 'xkcd:light red', 'linestyle': '-'}
+
+ax = plot_avg_variable_over_y(time=0, run_dir=run_path, variable_name='Log Ion Density', x_bounds=(0, 2e-3), y_range=(-10e-6, 10e-6), to_plot=False, plot_style=style1, to_save=False, save_dir=savedir)
+ax = plot_avg_variable_over_y(time=200, run_dir=run_path, variable_name='Log Ion Density', x_bounds=(0, 2e-3), y_range=(-10e-6, 10e-6), ax=ax, to_plot=False, plot_style=style2, to_save=False, save_dir=savedir)
+ax = plot_avg_variable_over_y(time=200, run_dir=run_path, variable_name='Ion Temperature', x_bounds=(0, 250e-6), y_range=(-10e-6, 10e-6), ax=ax, to_plot=True, use_right_axis=True, plot_style=style3, to_save=True, save_dir=savedir)
+
 # Convert to StructuredGrid
 smesh = unstructured_to_structured(mesh, variable_name='Log Ion Density')
 
-# # Use the glyph filter to visualize the vectors
-# smesh.set_active_vectors('Magnetic Field')
-# vector_data = smesh.cell_arrays['Magnetic Field']
-# cell_id = 0
-# print(f"Vector data for cell {cell_id}: {vector_data[cell_id]}")
-
-# glyphs = smesh.glyph(orient='Magnetic Field')
-
-
 # # Plotting
-# plotter = pv.Plotter()
-# plotter.add_mesh(glyphs, color='blue')
-# plotter.show()
-
 r, z, dr, dz = plot_mesh_with_time_slider(smesh, 'Log Ion Density', cmap='terrain', clim=[20, 30], to_plot=True)
-# r, z, dr, dz = plot_mesh_with_time_slider(smesh, 'Magnetic Field', cmap='terrain', clim=[0,250], to_plot=True)
-r, z, dr, dz = plot_mesh_with_time_slider(smesh, 'Ion Velocity', cmap='terrain',  clim=[0, 1e5], to_plot=True)
-r, z, dr, dz = plot_mesh_with_time_slider(smesh, 'Ion Temperature', cmap='terrain',   clim=[0, 10], to_plot=True)
+r, z, dr, dz = plot_mesh_with_time_slider(smesh, 'Magnetic Field', cmap='terrain', clim=[0,250], to_plot=True)
 
 # Plot the structured grid and show the axis and labels    
 # plotter1 = plot_mesh_with_scalar(smesh, 'Log Ion Density', cmap='terrain', clim=[20, 30], to_plot=True, plotter_loc=[0, 0], columns=1, rows=1)
@@ -264,103 +344,3 @@ data = smesh.point_data['Ion Density']
 
 # Grid dimensions (assuming you know these or retrieve them from the grid)
 nx, nz, nu = smesh.dimensions
-
-Fy = np.zeros((nz, nx))
-for zi in range(nz):
-
-    # Constant y and z indices
-    constant_z_index = 0  # Example: constant z index
-    constant_nu_index = 0  # Example: constant z index
-
-    # Calculate the start and end indices in the 1D array for the slice
-    start_index = (constant_nu_index * nu * nx) + (zi * nx)
-    end_index = start_index + nx
-
-    # Extract values along x for constant y and z
-    values_along_x = data[start_index:end_index]
-
-    projection_2d = abel_projection(values_along_x, dr)
-    Fy[zi, :] = projection_2d
-
-
-# Plot the results
-# Attenuation for 10 keV in aluminum
-# mu = 5.033E+01 # cm^2/g for 8 keV in aluminum
-mu = 2.623E+01 # cm^2/g for 10 keV in aluminum
-# mu = 7.955E+00 # cm^2/g for 15 keV in aluminum
-# mu = 3.441E+00 # cm^2/g for 20 keV in aluminum
-# mu = 1.128E+00 # cm^2/g for 30 keV in aluminum
-
-# Convert number density to mass density
-M=26.98 #g/mol for aluminum,
-NA=6.022e23 # atoms/mole.
-
-arg = Fy*1e-4 * mu * M/NA
-Ip = np.exp(-arg)
-
-# Add this Scalar value to the grid
-smesh.point_data['stopping'] = Ip.flatten()
-
-num_photons_per_pulse = 1e12
-V=60e-6
-H=60e-6
-focal_spot_area = V*H #(VxH) in m^2
-
-# Get the bounds of the grid
-bounds = mesh.bounds
-
-# The bounds are in the order: [xmin, xmax, ymin, ymax, zmin, zmax]
-rmin, rmax, zmin, zmax, _, _ = bounds
-
-# Print min and max values
-print(f"X Min: {rmin}, X Max: {rmax}")
-print(f"Y Min: {zmin}, Y Max: {zmax}")
-
-# Define the region of interest
-zoom = 1
-scl = 5
-rblow = 0
-rbhigh = H/2
-zblow = -V/2
-zbhigh = V/2
-
-rblow = 0
-rbhigh = rmax/zoom
-zblow = -zmax/zoom
-zbhigh = zmax/zoom
-
-# Get Ip for a region of interest
-# Assuming the region of interest is a box defined by the following limits
-
-# Find the 1D indices for the region of interest in the mesh
-r_min_index = int(rblow/ dr)
-r_max_index = int(rbhigh / dr)
-z_min_index = int((zblow+(zmax-zmin)/2) / dz)
-z_max_index = int((zbhigh+(zmax-zmin)/2) / dz)
-
-# Plot and make the aspect ratio consistent with the extent
-# Reflect Ip about the vertical axis and plot both
-Ipleft = np.flip(Ip, axis=1)
-Ipfull = np.concatenate((Ipleft, Ip), axis=1)
-Ipzoom = Ip[z_min_index:z_max_index, r_min_index:r_max_index]
-Ipzoomleft = np.flip(Ipzoom, axis=1)
-Ipzoomfull = np.concatenate((Ipzoomleft, Ipzoom), axis=1)
-print(f"Shape of Ip: {Ip.shape}")
-fig, ax = plt.subplots(1, 1)
-fig.set_size_inches(13.385, 6.0)
-# plt.imshow(Ipfull, cmap='RdBu', extent=[-rmax, rmax, zmin, zmax], aspect='equal', vmin=0, vmax=1)
-# Blur the image
-# Ipzoomfull = gaussian_filter(Ipzoomfull, sigma=2)
-
-plt.imshow(Ipzoomfull, cmap='RdBu', extent=[-rbhigh, rbhigh, zblow, zbhigh], aspect='equal', vmin=0, vmax=1)
-# 
-# sbmesh = get_mesh_subset(smesh, [r_min_index, r_max_index], [z_min_index, z_max_index])
-# plt.imshow(sbmesh, cmap='terrain', aspect='equal', extent=[10**6*rblow, 10**6*rbhigh, 10**6*zblow, 10**6*zbhigh])
-# cbar = fig.colorbar(lc, ax=ax)
-# cbar.set_label('Color mapping value')
-# show colorbar
-plt.colorbar()
-plt.tight_layout()
-# fig.savefig(savedir+run+"_"+str(time_analyze)+'_'+str(mu)+'_absorption.png', dpi=300)
-plt.show()
-print(f"Done")
