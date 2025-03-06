@@ -220,7 +220,7 @@ def plot_variable_in_region(time, run_dir, variable_name, x_bounds, y_bounds, cm
     plt.title(f'{variable_name} in Selected Region (Time {time})')
     plt.show()
 
-def plot_avg_variable_over_y(time, run_dir, variable_name, x_bounds, y_range, to_plot=True, ax=None, use_right_axis=False, plot_style={}, to_save=False, save_dir=None):
+def plot_avg_variable_over_y(time, run_dir, variable_name, x_bounds, y_range, to_plot=True, ax=None, bounds=None, use_right_axis=False, plot_style={}, to_save=False, save_dir=None):
   """
   Computes the average of a variable over a range of y values and plots it as a function of x.
 
@@ -269,6 +269,8 @@ def plot_avg_variable_over_y(time, run_dir, variable_name, x_bounds, y_range, to
   elif use_right_axis:
         ax = ax.twinx()  # Create secondary y-axis on the right
   ax.plot(selected_x, avg_data, label=f'Average {variable_name}', **plot_style)
+  if bounds is not None:
+      ax.set_ylim(bounds[0], bounds[1])  # Set y-axis limits from 0 to 6
   if to_save:
       plt.tight_layout()
       plt.savefig(os.path.join(save_dir, f'avg_{variable_name.replace(" ", "_")}_time_{time}.png'), dpi=600)
@@ -305,7 +307,7 @@ else:
 run = 'run1'
 run_path = datadir+run+'/data/'
 
-time_analyze = 110
+time_analyze = 70
 time = find_max_time(run_path)
 
 # Combine the tiles into a single grid
@@ -318,15 +320,19 @@ dr = r[1]-r[0]
 dz = dr
 
 # Plot the variable in a specified region
-plot_variable_in_region(time=200, run_dir=run_path, variable_name='Log Ion Density', x_bounds=(-1, 1), y_bounds=(-1, 1), to_save=True, save_dir=savedir)
+plot_variable_in_region(time=85, run_dir=run_path, variable_name='Log Ion Density', x_bounds=(-1, 1), y_bounds=(-1, 1), to_save=True, save_dir=savedir)
 
 style1 = {'linewidth': 4, 'color': 'k', 'linestyle': '--'}
-style2 = {'linewidth': 4, 'color': 'xkcd:sky blue', 'linestyle': '-'}
-style3 = {'linewidth': 4, 'color': 'xkcd:light red', 'linestyle': '-'}
+style2 = {'linewidth': 4, 'color': 'xkcd:sky blue', 'linestyle': '--'}
+style3 = {'linewidth': 4, 'color': 'xkcd:sky blue', 'linestyle': '-'}
+style4 = {'linewidth': 4, 'color': 'xkcd:light red', 'linestyle': '--'}
+style5 = {'linewidth': 4, 'color': 'xkcd:light red', 'linestyle': '-'}
 
-ax = plot_avg_variable_over_y(time=0, run_dir=run_path, variable_name='Log Ion Density', x_bounds=(0, 2e-3), y_range=(-10e-6, 10e-6), to_plot=False, plot_style=style1, to_save=False, save_dir=savedir)
-ax = plot_avg_variable_over_y(time=200, run_dir=run_path, variable_name='Log Ion Density', x_bounds=(0, 2e-3), y_range=(-10e-6, 10e-6), ax=ax, to_plot=False, plot_style=style2, to_save=False, save_dir=savedir)
-ax = plot_avg_variable_over_y(time=200, run_dir=run_path, variable_name='Ion Temperature', x_bounds=(0, 250e-6), y_range=(-10e-6, 10e-6), ax=ax, to_plot=True, use_right_axis=True, plot_style=style3, to_save=True, save_dir=savedir)
+ax = plot_avg_variable_over_y(time=0, run_dir=run_path, variable_name='Log Ion Density', x_bounds=(0, 1e-3), y_range=(-10e-6, 10e-6), bounds=(20, 30), to_plot=False, use_right_axis=False, plot_style=style1, to_save=False, save_dir=savedir)
+ax = plot_avg_variable_over_y(time=65, run_dir=run_path, variable_name='Log Ion Density', x_bounds=(0, 1e-3), y_range=(-10e-6, 10e-6), bounds=(20, 30), ax=ax, use_right_axis=False, to_plot=False, plot_style=style2, to_save=False, save_dir=savedir)
+ax = plot_avg_variable_over_y(time=65, run_dir=run_path, variable_name='Ion Temperature', x_bounds=(0, 250e-6), y_range=(-10e-6, 10e-6), bounds=(0, 2), ax=ax, to_plot=False, use_right_axis=True, plot_style=style4, to_save=False, save_dir=savedir)
+ax = plot_avg_variable_over_y(time=85, run_dir=run_path, variable_name='Log Ion Density', x_bounds=(0, 1e-3), y_range=(-10e-6, 10e-6), bounds=(20, 30), ax=ax, to_plot=False, plot_style=style3, to_save=False, save_dir=savedir)
+ax = plot_avg_variable_over_y(time=85, run_dir=run_path, variable_name='Ion Temperature', x_bounds=(0, 250e-6), y_range=(-10e-6, 10e-6), bounds=(0, 2), ax=ax, to_plot=True, use_right_axis=True, plot_style=style5, to_save=True, save_dir=savedir)
 
 # Convert to StructuredGrid
 smesh = unstructured_to_structured(mesh, variable_name='Log Ion Density')
